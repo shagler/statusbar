@@ -27,13 +27,13 @@ mod x11 {
     use super::*;
 
     pub struct Display {
-        pub display: *mut usize,
+        pub display: usize,
     }
 
     impl Display {
         pub fn open() -> Result<Self> {
-            let display = unsafe { XOpenDisplay(std::ptr::null()) };
-            if display.is_null() {
+            let display = unsafe { XOpenDisplay(0) };
+            if display == 0 {
                 Err(Error::OpenDisplayError)
             }
             else {
@@ -42,18 +42,18 @@ mod x11 {
         }
 
         pub fn default_root_window(&self) -> Result<usize> {
-            let result = unsafe { XDefaultRootWindow(self.display as usize) };
-            if result == 0 {
+            let window = unsafe { XDefaultRootWindow(self.display) };
+            if window == 0 {
                 Err(Error::RootWindowError)
             }
             else {
-                Ok(result)
+                Ok(window)
             }
         }
 
         pub fn flush(&self) -> Result<()> {
-            let result = unsafe { XFlush(self.display as usize) };
-            if result == 0 {
+            let result = unsafe { XFlush(self.display) };
+            if result == 1 {
                 Ok(())
             }
             else {
@@ -63,9 +63,9 @@ mod x11 {
 
         pub fn store_name(&self, window: usize, name: *const u8) -> Result<()> {
             let result = unsafe { 
-                XStoreName(self.display as usize, window, name)
+                XStoreName(self.display, window, name)
             };
-            if result == 0 {
+            if result == 1 {
                 Ok(())
             }
             else {
@@ -76,14 +76,14 @@ mod x11 {
 
     impl Drop for Display {
         fn drop(&mut self) {
-            unsafe { XCloseDisplay(self.display as usize); }
+            unsafe { XCloseDisplay(self.display); }
         }
     }
 }
 
 #[link(name = "X11")]
 extern { 
-    fn XOpenDisplay(name: *const u8) -> *mut usize;
+    fn XOpenDisplay(name: usize) -> usize;
     fn XCloseDisplay(display: usize);
     fn XDefaultRootWindow(display: usize) -> usize;
     fn XFlush(display: usize) -> i32;
@@ -104,7 +104,6 @@ impl StatusBar {
     }
 
     pub fn update_status(&self, status: &str) -> Result<()> {
-        let status = format!("{}\0", status);
         self.display.store_name(self.window, status.as_ptr())?;
         self.display.flush()?;
         Ok(())
