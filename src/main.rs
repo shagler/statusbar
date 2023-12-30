@@ -115,7 +115,7 @@ fn main() -> Result<()> {
 
     loop {
         let time = chrono::Local::now();
-        let status = format!("{}\0", time.format("%F %T"));
+        let status = format!("{}\0", time.format("%F %I:%M:%S %p"));
         status_bar.update_status(&status)?;
 
         std::thread::sleep(std::time::Duration::from_secs_f64(1.0 / 60.0));
