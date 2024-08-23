@@ -105,7 +105,7 @@ fn run_status_loop() -> Fallible<()> {
     let time = chrono::Local::now();
 
     let status = format!(
-      "<span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}",
+      "<span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}",
       fa_disk_home, main_usage,
       fa_disk_root, other_usage,
       fa_memory, mem_usage,
@@ -114,7 +114,6 @@ fn run_status_loop() -> Fallible<()> {
       network_status,
       fa_clock, time.format("%a %d %b %I:%M:%S %p")
     );
-
     println!("{}", status);
 
     std::io::stdout().flush().unwrap();
