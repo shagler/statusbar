@@ -6,6 +6,7 @@ use std::thread;
 use std::io::{Read, Write};
 use std::fs::File;
 use std::process::Command;
+use std::env;
 
 fn get_amd_gpu_usage() -> Result<f64, std::io::Error> {
   let output = Command::new("/opt/rocm/bin/rocm-smi")
@@ -28,9 +29,9 @@ fn get_amd_gpu_usage() -> Result<f64, std::io::Error> {
 }
 
 fn get_network_status(sys: &System) -> (String, String) {
-  let fa_ethernet = "\u{f796}";   // fa-ethernet
-  let fa_wifi = "\u{f1eb}";       // fa-wifi
-  let fa_disconnected = "\u{f071}"; // fa-exclamation-triangle
+  let fa_ethernet = "\u{f796}";
+  let fa_wifi = "\u{f1eb}";
+  let fa_disconnected = "\u{f071}";
 
   let mut active_interfaces = Vec::new();
   let mut network_debug = String::new();
@@ -39,7 +40,6 @@ fn get_network_status(sys: &System) -> (String, String) {
     let received = data.received();
     let transmitted = data.transmitted();
     
-    // Check if the interface is up by reading from sysfs
     let is_up = std::fs::read_to_string(format!("/sys/class/net/{}/operstate", interface_name))
       .map(|s| s.trim() == "up")
       .unwrap_or(false);
@@ -52,9 +52,11 @@ fn get_network_status(sys: &System) -> (String, String) {
 
   let status_icon = if active_interfaces.iter().any(|&name| name.starts_with("e")) {
     fa_ethernet
-  } else if active_interfaces.iter().any(|&name| name.starts_with("w")) {
+  } 
+  else if active_interfaces.iter().any(|&name| name.starts_with("w")) {
     fa_wifi
-  } else {
+  } 
+  else {
     fa_disconnected
   };
 
@@ -65,15 +67,16 @@ fn get_network_status(sys: &System) -> (String, String) {
   (status_icon.to_string(), network_debug)
 }
 
-fn main() -> Fallible<()> {
+fn create_bar() -> Fallible<()> {
   let mut connection = Connection::new()?;
   connection.run_command("bar new_bar position top")?;
-  connection.run_command("bar new_bar status_command ~/devel/statusbar/target/debug/statusbar")?;
+  connection.run_command("bar new_bar status_command ~/.cargo/bin/statusbar --status")?;
   connection.run_command("bar new_bar font pango:Berkeley Mono 9, Font Awesome 6 Free Solid 9")?;
+  Ok(())
+}
 
+fn run_status_loop() -> Fallible<()> {
   let mut sys = System::new_all();
-
-  let font_test = "ABC abc 123 !@# \u{f0f3}\u{f17c}\u{f17b}\u{f179}\u{f5ef}";
 
   let fa_disk_root = "\u{f0a0}";
   let fa_disk_home = "\u{f015}"; 
@@ -84,8 +87,6 @@ fn main() -> Fallible<()> {
   let fa_ethernet = "\u{f796}"; 
   let fa_disconnected = "\u{f071}";
   let fa_clock = "\u{f017}";
-  let debug_icons = format!("Debug: {} {} {} {} {} {} {} {} {}", 
-    fa_disk_root, fa_disk_home, fa_memory, fa_cpu, fa_gpu, fa_wifi, fa_ethernet, fa_disconnected, fa_clock);
 
   loop {
     sys.refresh_all();
@@ -119,5 +120,18 @@ fn main() -> Fallible<()> {
     std::io::stdout().flush().unwrap();
     thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
   }
+}
+
+fn main() -> Fallible<()> {
+  let args: Vec<String> = env::args().collect();
+    
+  if args.len() > 1 && args[1] == "--status" {
+    run_status_loop()?;
+  } 
+  else {
+    create_bar()?;
+  }
+  
+  Ok(())
 }
 
