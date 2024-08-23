@@ -112,7 +112,7 @@ fn run_status_loop() -> Fallible<()> {
       fa_cpu, cpu_usage,
       fa_gpu, gpu_usage,
       network_status,
-      fa_clock, time.format("%a %d %b %I:%M %p")
+      fa_clock, time.format("%a %d %b %I:%M:%S %p")
     );
 
     println!("{}", status);
