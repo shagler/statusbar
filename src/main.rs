@@ -117,7 +117,7 @@ fn run_status_loop() -> Fallible<()> {
     println!("{}", status);
 
     std::io::stdout().flush().unwrap();
-    thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
+    thread::sleep(Duration::from_secs_f64(1.0 / 144.0));
   }
 }
 
