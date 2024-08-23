@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 chrono = "0.4"
 swayipc = "3.0"
+sysinfo = "0.28"
