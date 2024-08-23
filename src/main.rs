@@ -15,9 +15,9 @@ fn get_amd_gpu_usage() -> Result<f64, std::io::Error> {
   if output.status.success() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines() {
-      if line.starts_with("0") {  // Look for the first GPU (index 0)
+      if line.starts_with("0") {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 15 {  // Ensure we have enough parts
+        if parts.len() >= 15 { 
           if let Ok(usage) = parts[14].trim().replace("%", "").parse::<f64>() {
             return Ok(usage);
           }
@@ -106,8 +106,8 @@ fn run_status_loop() -> Fallible<()> {
 
     let status = format!(
       "<span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}",
-      fa_disk_root, other_usage,
       fa_disk_home, main_usage,
+      fa_disk_root, other_usage,
       fa_memory, mem_usage,
       fa_cpu, cpu_usage,
       fa_gpu, gpu_usage,
