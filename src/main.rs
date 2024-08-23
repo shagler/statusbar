@@ -99,18 +99,17 @@ fn run_status_loop() -> Fallible<()> {
     let cpu_usage = sys.global_cpu_info().cpu_usage();
 
     // @TODO: GPU agnostic
-    let gpu_usage = get_amd_gpu_usage().unwrap_or(0.0);
+    // let gpu_usage = get_amd_gpu_usage().unwrap_or(0.0);
 
     let (network_status, network_debug) = get_network_status(&sys);
     let time = chrono::Local::now();
 
     let status = format!(
-      "<span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}",
+      "<span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}",
       fa_disk_home, main_usage,
       fa_disk_root, other_usage,
       fa_memory, mem_usage,
       fa_cpu, cpu_usage,
-      fa_gpu, gpu_usage,
       network_status,
       fa_clock, time.format("%a %d %b %I:%M:%S %p")
     );

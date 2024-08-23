@@ -1,7 +1,7 @@
 # sway statusbar
 
 A custom statusbar output for the Sway window manager, written in Rust. This statusbar displays system information
-including disk usage, memory usage, CPU usage, GPU usage, network status, and current time. 
+including disk usage, memory usage, CPU usage, GPU usage (WIP), network status, and current time. 
 
 ## Installation
 
