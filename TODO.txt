@@ -1,3 +1,2 @@
 
 * warning icons on failure (each feature)
-* mount /dev/nmve1n1p1 on boot 
