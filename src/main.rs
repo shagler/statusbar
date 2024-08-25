@@ -8,41 +8,67 @@ use std::process::Command;
 use std::env;
 use std::sync::{Arc, Mutex};
 use pulse::context::Context;
-use pulse::mainloop::standard::{Mainloop, IterateResult};
+use pulse::mainloop::standard::{IterateResult, Mainloop};
 use pulse::volume::Volume;
-use pulse::proplist::Proplist;
-use pulse::context::FlagSet;
-use psimple::Simple;
+use pulse::callbacks::ListResult;
 
 fn get_pulseaudio_volume() -> Result<u32, Box<dyn std::error::Error>> {
-  let mut proplist = Proplist::new().unwrap();
-  proplist.set_str(pulse::proplist::properties::APPLICATION_NAME, "VolumeMonitor").unwrap();
+  let mut mainloop = Mainloop::new().ok_or("Failed to create mainloop")?;
+  let mut context = Context::new(&mainloop, "Volume Monitor").ok_or("Failed to create context")?;
+  context.connect(None, pulse::context::flags::NOFLAGS, None)?;
 
-  let spec = pulse::sample::Spec {
-    format: pulse::sample::Format::FLOAT32NE,
-    channels: 1,
-    rate: 44100,
-  };
+  let volume = Arc::new(Mutex::new(None));
+  let volume_clone = Arc::clone(&volume);
 
-  let mut s = Simple::new(
-    None,                // Use the default server
-    "VolumeMonitor",     // Our application's name
-    pulse::stream::Direction::Record,  // We want to record the volume
-    None,                // Use the default device
-    "Volume Monitor",    // Description of our stream
-    &spec,               // Our sample format
-    None,                // Use default channel map
-    None,                // Use default buffering attributes
-  )?;
+  loop {
+    match context.get_state() {
+      pulse::context::State::Ready => break,
+      pulse::context::State::Failed | pulse::context::State::Terminated => {
+        return Err("Failed to connect to PulseAudio".into());
+      }
+      _ => {
+        match mainloop.iterate(false) {
+          pulse::mainloop::standard::IterateResult::Quit(_) | 
+          pulse::mainloop::standard::IterateResult::Err(_) => {
+            return Err("Mainloop iterate failed".into());
+          },
+          pulse::mainloop::standard::IterateResult::Success(_) => {},
+        }
+      }
+    }
+  }
 
-  let mut buf = [0u8; 4];
-  s.read(&mut buf)?;
-  let volume_raw = f32::from_ne_bytes(buf);
+  let introspector = context.introspect();
+  introspector.get_server_info(move |info| {
+    if let Some(default_sink_name) = info.default_sink_name.as_ref() {
+      let val = volume_clone.clone();
+      context.introspect().get_sink_info_by_name(default_sink_name, move |res| {
+        if let ListResult::Item(item) = res {
+          let vol = item.volume.avg().0 as f32 / Volume::NORMAL.0 as f32 * 100.0;
+          if let Ok(mut volume) = val.lock() {
+            *volume = Some(vol as u32);
+          }
+        }
+      });
+    }
+  });
 
-  let volume_percent = (volume_raw * 100.0) as u32;
-  Ok(volume_percent.min(100))
+ loop {
+    match mainloop.iterate(false) {
+        IterateResult::Quit(_) | 
+        IterateResult::Err(_) => {
+          return Err("Mainloop iterate failed".into());
+        },
+        IterateResult::Success(_) => {
+        if let Ok(volume_guard) = volume.lock() {
+          if let Some(vol) = *volume_guard {
+            return Ok(vol);
+          }
+        }
+      },
+    }
+  }
 }
-
 
 fn get_amd_gpu_usage() -> Result<f64, std::io::Error> {
   let output = Command::new("/opt/rocm/bin/rocm-smi")
@@ -141,7 +167,11 @@ fn run_status_loop(volume: Arc<Mutex<u32>>) -> Fallible<()> {
     let (network_status, network_debug) = get_network_status(&sys);
     let time = chrono::Local::now();
 
-    let volume_value = *volume.lock().unwrap();
+    let volume_value = {
+      let volume_guard = volume.lock()
+        .map_err(|e| swayipc::Error::CommandFailed(format!("Failed to lock volume mutex: {}", e)))?;
+      *volume_guard
+    };
 
     let status = format!(
       "<span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}",
@@ -166,9 +196,13 @@ fn main() -> Fallible<()> {
 
   thread::spawn(move || {
     loop {
-      if let Ok(new_volume) = get_pulseaudio_volume() {
-        let mut volume = volume_clone.lock().unwrap();
-        *volume = new_volume;
+      match get_pulseaudio_volume() {
+        Ok(new_volume) => {
+          if let Ok(mut volume) = volume_clone.lock() {
+            *volume = new_volume;
+          }
+        },
+        Err(e) => eprintln!("Failed to get volume: {}", e),
       }
       thread::sleep(Duration::from_millis(500)); 
     }
