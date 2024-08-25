@@ -6,6 +6,7 @@ use std::thread;
 use std::io::Write;
 use std::process::Command;
 use std::env;
+use std::sync::{Arc, Mutex};
 use pulse::context::Context;
 use pulse::mainloop::standard::{Mainloop, IterateResult};
 use pulse::volume::Volume;
@@ -110,7 +111,7 @@ fn create_bar() -> Fallible<()> {
   Ok(())
 }
 
-fn run_status_loop() -> Fallible<()> {
+fn run_status_loop(volume: Arc<Mutex<u32>>) -> Fallible<()> {
   let mut sys = System::new_all();
 
   let fa_disk_root = "\u{f0a0}";
@@ -140,7 +141,7 @@ fn run_status_loop() -> Fallible<()> {
     let (network_status, network_debug) = get_network_status(&sys);
     let time = chrono::Local::now();
 
-    let volume = get_pulseaudio_volume().unwrap_or(0);
+    let volume_value = *volume.lock().unwrap();
 
     let status = format!(
       "<span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}",
@@ -149,7 +150,7 @@ fn run_status_loop() -> Fallible<()> {
       fa_memory, mem_usage,
       fa_cpu, cpu_usage,
       network_status,
-      fa_headphones, volume,
+      fa_headphones, volume_value,
       fa_clock, time.format("%a %d %b %I:%M:%S %p")
     );
     println!("{}", status);
@@ -160,10 +161,23 @@ fn run_status_loop() -> Fallible<()> {
 }
 
 fn main() -> Fallible<()> {
+  let volume = Arc::new(Mutex::new(0u32));
+  let volume_clone = Arc::clone(&volume);
+
+  thread::spawn(move || {
+    loop {
+      if let Ok(new_volume) = get_pulseaudio_volume() {
+        let mut volume = volume_clone.lock().unwrap();
+        *volume = new_volume;
+      }
+      thread::sleep(Duration::from_millis(500)); 
+    }
+  });
+
+
   let args: Vec<String> = env::args().collect();
-    
   if args.len() > 1 && args[1] == "--status" {
-    run_status_loop()?;
+    run_status_loop(volume)?;
   } 
   else {
     create_bar()?;
