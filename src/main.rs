@@ -3,10 +3,45 @@ use swayipc::{Connection, Fallible};
 use sysinfo::{System, SystemExt, DiskExt, NetworkExt, NetworksExt, CpuExt};
 use std::time::Duration;
 use std::thread;
-use std::io::{Read, Write};
-use std::fs::File;
+use std::io::Write;
 use std::process::Command;
 use std::env;
+use pulse::context::Context;
+use pulse::mainloop::standard::{Mainloop, IterateResult};
+use pulse::volume::Volume;
+use pulse::proplist::Proplist;
+use pulse::context::FlagSet;
+use psimple::Simple;
+
+fn get_pulseaudio_volume() -> Result<u32, Box<dyn std::error::Error>> {
+  let mut proplist = Proplist::new().unwrap();
+  proplist.set_str(pulse::proplist::properties::APPLICATION_NAME, "VolumeMonitor").unwrap();
+
+  let spec = pulse::sample::Spec {
+    format: pulse::sample::Format::FLOAT32NE,
+    channels: 1,
+    rate: 44100,
+  };
+
+  let mut s = Simple::new(
+    None,                // Use the default server
+    "VolumeMonitor",     // Our application's name
+    pulse::stream::Direction::Record,  // We want to record the volume
+    None,                // Use the default device
+    "Volume Monitor",    // Description of our stream
+    &spec,               // Our sample format
+    None,                // Use default channel map
+    None,                // Use default buffering attributes
+  )?;
+
+  let mut buf = [0u8; 4];
+  s.read(&mut buf)?;
+  let volume_raw = f32::from_ne_bytes(buf);
+
+  let volume_percent = (volume_raw * 100.0) as u32;
+  Ok(volume_percent.min(100))
+}
+
 
 fn get_amd_gpu_usage() -> Result<f64, std::io::Error> {
   let output = Command::new("/opt/rocm/bin/rocm-smi")
@@ -25,7 +60,7 @@ fn get_amd_gpu_usage() -> Result<f64, std::io::Error> {
       }
     }
   }
-  Ok(0.0) 
+  Ok(0.0)
 }
 
 fn get_network_status(sys: &System) -> (String, String) {
@@ -61,7 +96,7 @@ fn get_network_status(sys: &System) -> (String, String) {
   };
 
   if active_interfaces.is_empty() {
-    network_debug.push_str("No active interfaces");
+  network_debug.push_str("No active interfaces");
   }
 
   (status_icon.to_string(), network_debug)
@@ -86,6 +121,7 @@ fn run_status_loop() -> Fallible<()> {
   let fa_wifi = "\u{f1eb}";
   let fa_ethernet = "\u{f796}"; 
   let fa_disconnected = "\u{f071}";
+  let fa_headphones = "\u{f025}";
   let fa_clock = "\u{f017}";
 
   loop {
@@ -104,13 +140,16 @@ fn run_status_loop() -> Fallible<()> {
     let (network_status, network_debug) = get_network_status(&sys);
     let time = chrono::Local::now();
 
+    let volume = get_pulseaudio_volume().unwrap_or(0);
+
     let status = format!(
-      "<span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}",
+      "<span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {:5.1}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}% | <span font_desc='Font Awesome 6 Free Solid'>{}</span> {}",
       fa_disk_home, main_usage,
       fa_disk_root, other_usage,
       fa_memory, mem_usage,
       fa_cpu, cpu_usage,
       network_status,
+      fa_headphones, volume,
       fa_clock, time.format("%a %d %b %I:%M:%S %p")
     );
     println!("{}", status);

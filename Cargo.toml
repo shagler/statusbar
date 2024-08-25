@@ -7,3 +7,5 @@ edition = "2021"
 chrono = "0.4"
 swayipc = "3.0"
 sysinfo = "0.28"
+pulse = { version = "2.0", package = "libpulse-binding" }
+psimple = { version = "2.0", package = "libpulse-simple-binding" }
